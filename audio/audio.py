@@ -55,7 +55,7 @@ class STTWebSocket:
             "type" : "session.update",
             "session" : {
                 "modalities": ["text", "audio"],
-                "instructions": "You are Aeris, an AI agent that speaks about anything. At the moment, you should just focus on transcribing some text"
+                "instructions": "Sei Aeris e per adesso devi solo trascrivere testo senza rispondermi."
                 "and responding in very concise way.",
                 "voice": "alloy",
                 "input_audio_format": "pcm16",
