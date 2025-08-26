@@ -128,7 +128,7 @@ class AerisEars:
             task="transcribe",
             max_new_tokens=443, # limita il numero di token delle risposte
             do_sample=False, # generazione deterministica e non stocastica
-            num_beams=1
+            num_beams=3
           )
           
           transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
