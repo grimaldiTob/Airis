@@ -10,6 +10,9 @@ from transformers import WhisperProcessor, WhisperForConditionalGeneration
 import warnings
 import librosa
 
+# ============== imports =============== #
+from wakeup import Porcupine
+
 class AerisEars:
     def __init__(self, model="openai/whisper-base"):
       self.model_name = model
@@ -162,7 +165,7 @@ class AerisEars:
     
     """ Funzione che inizializza l'audio thread per catturare l'audio del microfono
          e il thread che processa la coda audio."""  
-    def start_recording(self, device_index):
+    def start_recording(self, device_index = 0):
       # se stai già registrando o non c'è modello salta 
       if self.is_recording or self.model is None:
         return
@@ -214,11 +217,12 @@ class AerisEars:
       print("Stopped")
       
 def main():
-  AIvoice = AerisEars()
+  AIears = AerisEars()
+  WakeWord = Porcupine(callback=AIears.start_recording)
+  #AIears.list_audio_dev()
+  #AIears.start_recording()
   
-  #AIvoice.list_audio_dev()
-  
-  AIvoice.start_recording(0)
+  WakeWord.start(timeout=10)
 
 if __name__ == "__main__":
   main()
