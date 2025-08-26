@@ -8,25 +8,27 @@ import sys
 import torch
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 import warnings
+import librosa
 
 class AerisEars:
-    def __init__(self, model="openai/whisper-small"):
+    def __init__(self, model="openai/whisper-base"):
       self.model_name = model
 
         # audio settings
       self.chunk_size = 1024
       self.sample_format = pyaudio.paInt16
       self.channels = 1
-      self.sample_rate = 16000 # frequency
+      self.sample_rate = 44100 # frequency
       self.record_seconds = 3
 
       self.audio_queue = Queue(maxsize=5)
       self.is_recording = False
       
       # Oggetto PyAudio
-      self.audio = pyaudio.Pyaudio()
+      self.audio = pyaudio.PyAudio()
 
       #Model Componenets
+      """ Il Whisper Processor è usato per preprocessare gli input audio e elaborare gli output di testo"""
       self.processor = None
       self.model = None
 
@@ -38,7 +40,6 @@ class AerisEars:
       self.stop_recording()
       sys.exit(0)
 
-
     """ Funzione che carica il modello."""
     def load_model(self):
       try:
@@ -46,8 +47,8 @@ class AerisEars:
         self.model = WhisperForConditionalGeneration.from_pretrained(
           self.model_name,
           torch_dtype=torch.float32, # forza il modello ad usare float a 32 bit 
-          low_cpu_usage=True
-        ) # RICONTROLLA
+          low_cpu_mem_usage=True
+        )
         
         self.model.to("cpu")
         self.model.eval()
@@ -115,19 +116,18 @@ class AerisEars:
     def transcribe_audio(self, audio_data):
       try:
         # se i dati audio sono inferiori ad una data cifra in valore assoluto
-        if np.max(np.abs(audio_data)) < 0.01:
+        if np.max(np.abs(audio_data)) < 0.05:
           return None
 
-        inputs = self.processor(audio_data, sampling_rate=self.sample_rate, return_tensors="pt")
+        inputs = self.processor(audio_data, sampling_rate=16000, return_tensors="pt", return_attention_mask=True)
         with torch.no_grad():
-          forced_decoder_ids = self.processor.get_decoder_prompt_ids(
-            language="italian", task="transcribe"
-          )
+          
           predicted_ids = self.model.generate(
             inputs["input_features"],
-            forced_decoder_ids=forced_decoder_ids,
-            max_new_tokens=448,
-            do_sample=False,
+            language="italian",
+            task="transcribe",
+            max_new_tokens=443, # limita il numero di token delle risposte
+            do_sample=False, # generazione deterministica e non stocastica
             num_beams=1
           )
           
@@ -144,7 +144,10 @@ class AerisEars:
         try:
           if not self.audio_queue.empty():
             audio_data = self.audio_queue.get(timeout=1)
-            transcript = self.transcribe_audio(audio_data)
+            
+            # resampling dell'audio da 44.1kHz a 16kHz
+            audio_resampled = librosa.resample(audio_data, orig_sr=44100, target_sr=16000)
+            transcript = self.transcribe_audio(audio_resampled)
             
             if transcript:
               print(f"Transcript: {transcript}")
@@ -169,12 +172,14 @@ class AerisEars:
       self.audio_thread = threading.Thread(
         target=self.record_audio_chunk,
         args=(device_index, ),
-        deamon=True
+        daemon=True
       )
       self.processing_thread = threading.Thread(
         target=self.process_audio_queue,
-        deamon=True
+        daemon=True
       )
+      
+      print("Recording...")
       self.audio_thread.start()
       self.processing_thread.start()
       
@@ -207,6 +212,16 @@ class AerisEars:
           break
       self.audio.terminate()
       print("Stopped")
+      
+def main():
+  AIvoice = AerisEars()
+  
+  #AIvoice.list_audio_dev()
+  
+  AIvoice.start_recording(0)
+
+if __name__ == "__main__":
+  main()
       
         
 

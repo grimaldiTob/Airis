@@ -1,5 +1,5 @@
-websocket-client=1.8.0
 pyaudio
 transformers
 torch
 numpy
+librosa
