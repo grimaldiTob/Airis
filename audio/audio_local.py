@@ -18,7 +18,7 @@ class AerisEars:
       self.model_name = model
 
         # audio settings
-      self.chunk_size = 1024
+      self.chunk_size = 512
       self.sample_format = pyaudio.paInt16
       self.channels = 1
       self.sample_rate = 44100 # frequency
