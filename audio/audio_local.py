@@ -23,8 +23,12 @@ class AerisEars:
       self.channels = 1
       self.sample_rate = 44100 # frequency
       self.record_seconds = 3
+      
+      # Silence settings
+      self.silence_threshold = 0.05
+      self.silence_seconds = 3.0
 
-      self.audio_queue = Queue(maxsize=5)
+      self.audio_queue = Queue(maxsize=10)
       self.is_recording = False
       
       # Oggetto PyAudio
@@ -83,6 +87,7 @@ class AerisEars:
           config['input_device_index'] = device_index
         
         stream = self.audio.open(**config)
+        silence_start = None
         
         while self.is_recording:
           frames = [] # pezzi di audio grezzi letti dal microfono
@@ -104,6 +109,16 @@ class AerisEars:
             # converte in float e normalizza in un range compreso tra [-1; 1]
             audio_data = audio_data.astype(np.float32) / 32768.0
             
+            if np.max(np.abs(audio_data)) < self.silence_threshold:
+              if silence_start is None:
+                silence_start = time.time()
+              elif time.time() - silence_start > self.silence_seconds:
+                print("Non sento nulla")
+                self.stop_recording()
+                break
+            else:
+              silence_start = None
+            
             try:
               self.audio_queue.put_nowait(audio_data)
             except:
@@ -119,7 +134,7 @@ class AerisEars:
     def transcribe_audio(self, audio_data):
       try:
         # se i dati audio sono inferiori ad una data cifra in valore assoluto
-        if np.max(np.abs(audio_data)) < 0.05:
+        if np.max(np.abs(audio_data)) < self.silence_threshold:
           return None
 
         inputs = self.processor(audio_data, sampling_rate=16000, return_tensors="pt", return_attention_mask=True)
@@ -143,17 +158,15 @@ class AerisEars:
     """ Funzione che verifica la presenza di byte all'interno della audio_queue
         e chiama transcript_audio. """
     def process_audio_queue(self):
+      transcribed_parts = []
+      
       while self.is_recording or not self.audio_queue.empty():
         try:
           if not self.audio_queue.empty():
-            audio_data = self.audio_queue.get(timeout=1)
-            
-            # resampling dell'audio da 44.1kHz a 16kHz
-            audio_resampled = librosa.resample(audio_data, orig_sr=44100, target_sr=16000)
-            transcript = self.transcribe_audio(audio_resampled)
-            
-            if transcript:
-              print(f"Transcript: {transcript}")
+            transcript = self.resample_audio()  
+          
+            if transcript and transcript.strip():
+              transcribed_parts.append(transcript)
               
             self.audio_queue.task_done()
           else:
@@ -161,6 +174,20 @@ class AerisEars:
         except Exception as e:
           print(f"Processing error: {e}")
           break
+      while not self.audio_queue.empty():
+        try:
+          transcript = self.resample_audio()
+          if transcript and transcript.strip():
+            transcribed_parts.append(transcript)
+        except:
+          break
+      return transcribed_parts
+        
+    def resample_audio(self):
+      audio_data = self.audio_queue.get(timeout=1)
+      audio_resampled = librosa.resample(audio_data, orig_sr=44100, target_sr=16000)
+      return self.transcribe_audio(audio_resampled)
+      
     
     
     """ Funzione che inizializza l'audio thread per catturare l'audio del microfono
@@ -215,6 +242,7 @@ class AerisEars:
           break
       self.audio.terminate()
       print("Stopped")
+      sys.exit(1)
       
 def main():
   AIears = AerisEars()

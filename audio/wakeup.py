@@ -116,5 +116,6 @@ class Porcupine:
                 return
         self.is_listening = False
         print(f"Timeout raggiunto ({timeout}s). Ascolto terminato.")
+        return False
                 
     
