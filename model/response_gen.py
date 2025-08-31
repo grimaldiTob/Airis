@@ -20,9 +20,6 @@ class AerisMind:
         try:
             response = self.client.responses.create(
                 model=self.model,
-                reasoning={
-                    "effort": "low"
-                },
                 input=[
                     {
                         "role": "developer",
@@ -35,7 +32,7 @@ class AerisMind:
                 ],
                 max_output_tokens=400,
                 text={
-                    "verbosity": "low"
+                    "verbosity": "medium"
                 }
             )
             

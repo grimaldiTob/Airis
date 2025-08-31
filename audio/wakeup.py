@@ -107,6 +107,7 @@ class Porcupine:
                 
                 if keyboard_index >= 0:
                     self.audio_stream.close()
+                    self.pa.terminate()
                     if self.callback:
                         self.callback()
                     self.is_listening = False

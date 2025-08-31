@@ -10,14 +10,11 @@ from transformers import WhisperProcessor, WhisperForConditionalGeneration
 import warnings
 import librosa
 
-# ============== imports =============== #
-from wakeup import Porcupine
-
 class AerisEars:
     def __init__(self, model="openai/whisper-base"):
       self.model_name = model
 
-        # audio settings
+      # audio settings
       self.chunk_size = 512
       self.sample_format = pyaudio.paInt16
       self.channels = 1
@@ -28,18 +25,20 @@ class AerisEars:
       self.silence_threshold = 0.05
       self.silence_seconds = 3.0
 
-      self.audio_queue = Queue(maxsize=10)
+      self.audio_queue = Queue()
       self.is_recording = False
       
       # Oggetto PyAudio
       self.audio = pyaudio.PyAudio()
+      
+      #Pezzi di trascrizione
+      self.transcribed_parts = []
 
       #Model Componenets
       """ Il Whisper Processor è usato per preprocessare gli input audio e elaborare gli output di testo"""
       self.processor = None
       self.model = None
 
-      signal.signal(signal.SIGINT, self.signal_handler)
       self.load_model()
 
     """ Gestisce l'uscita gracefull del programma. """
@@ -114,7 +113,7 @@ class AerisEars:
                 silence_start = time.time()
               elif time.time() - silence_start > self.silence_seconds:
                 print("Non sento nulla")
-                self.stop_recording()
+                self.audio.terminate()
                 break
             else:
               silence_start = None
@@ -158,19 +157,17 @@ class AerisEars:
     """ Funzione che verifica la presenza di byte all'interno della audio_queue
         e chiama transcript_audio. """
     def process_audio_queue(self):
-      transcribed_parts = []
+      self.transcribed_parts = []
       
       while self.is_recording or not self.audio_queue.empty():
         try:
-          if not self.audio_queue.empty():
-            transcript = self.resample_audio()  
           
-            if transcript and transcript.strip():
-              transcribed_parts.append(transcript)
-              
-            self.audio_queue.task_done()
-          else:
-            time.sleep(0.1)
+          transcript = self.resample_audio()  
+          
+          if transcript and transcript.strip():
+            self.transcribed_parts.append(transcript)
+            
+          self.audio_queue.task_done()
         except Exception as e:
           print(f"Processing error: {e}")
           break
@@ -178,10 +175,9 @@ class AerisEars:
         try:
           transcript = self.resample_audio()
           if transcript and transcript.strip():
-            transcribed_parts.append(transcript)
+            self.transcribed_parts.append(transcript)
         except:
           break
-      return transcribed_parts
         
     def resample_audio(self):
       audio_data = self.audio_queue.get(timeout=1)
@@ -228,32 +224,12 @@ class AerisEars:
       
       self.is_recording = False
       
-      if hasattr(self, 'audio_thread') and self.audio_thread.is_alive():
+      if self.audio_thread.is_alive():
         # aspetta finché il thread non termina
         self.audio_thread.join(timeout=3)
-        
-      while not self.audio_queue.empty():
-        try:
-          audio_data = self.audio_queue.get_nowait()
-          transcript = self.transcribe_audio(audio_data)
-          if transcript and transcript.strip():
-            print(f"Transcript: {transcript}")
-        except:
-          break
       self.audio.terminate()
       print("Stopped")
       sys.exit(1)
-      
-def main():
-  AIears = AerisEars()
-  WakeWord = Porcupine(callback=AIears.start_recording)
-  #AIears.list_audio_dev()
-  #AIears.start_recording()
-  
-  WakeWord.start(timeout=10)
-
-if __name__ == "__main__":
-  main()
       
         
 

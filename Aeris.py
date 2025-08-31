@@ -1,6 +1,7 @@
 from audio.wakeup import Porcupine
 from audio.audio_local import AerisEars
 from model.response_gen import AerisMind
+from speech.voice import AerisVoice
 import time
 
 
@@ -11,10 +12,12 @@ class Aeris:
         self.ears = None
         self.wakeword = None
         self.mind = AerisMind(model=gpt_model)
+        self.voice = None
         
         self.is_processing = False
         self.transcription_complete = False
         self.current_transcription = "" # prenderà audio di proceess audio queue e chiamerà create_response
+        self.response = ""
     
     """ Funzione chiamata quando una wakeword viene detectata da Porcupine..."""    
     def on_wake_word_detected(self):
@@ -23,6 +26,7 @@ class Aeris:
         
         self.transcription_complete = False
         self.current_transcription = ""
+        self.response = ""
         
         self.ears.process_audio_queue = self.custom_process_queue
         
@@ -69,24 +73,36 @@ class Aeris:
         if transcribed_parts:
             self.current_transcription = " ".join(transcribed_parts).strip()
             self.generate_response()
+            self.reproduce_audio()
         else:
             print("Nessuna trascrizione ottenuta.")
-        
         self.transcription_complete = True
         
     """ Funzione che richiama il modello di OpenAi per la generazione
         della risposta dato il prompt passato."""
     def generate_response(self):
         if self.current_transcription.strip():
-            response = self.mind.create_response(self.current_transcription)
-            print(f"{response}")
+            self.response = self.mind.create_response(self.current_transcription)
+            print(f"{self.response}")
+    
+    """ Metodo che permette di passare la stringa data dall'output del modello
+        al TTS di Kitten. Successivamente l'audio array ottenuto viene passato
+        alla funzione di riproduzione audio tramite altoparlanti."""
+    def reproduce_audio(self):
+        try:
+            self.voice = AerisVoice(model="KittenML/kitten-tts-nano-0.2", voice="expr-voice-2-f")
+            if self.response.strip():
+                audio = self.voice.generate_speech(self.response)
+                self.voice.play_audio(audio=audio, sample_rate=22050)
+        except Exception as e:
+            print(f"Errore nella riproduzione audio: {e}")
             
                 
     """ Funzione che inizializza l'agente Porcupine per la rilevazione della wakeword.
          Nel momento in cui la parola viene rilevata il loop continua e viene chiamata
          on_wake_word_detected() come callback. """
     def start_listening_cycle(self, timeout: int = 10):
-        self.wakeword = Porcupine(self.on_wake_word_detected)
+        self.wakeword = Porcupine(sensitivity=0.25, callback=self.on_wake_word_detected)
         
         self.wakeword.start(timeout)
         
@@ -98,9 +114,7 @@ class Aeris:
     """ Funzione che fa partire il loop di ascolto per la wakeword."""
     def run_continous(self, timeout: int = 10):
         try:
-            cycle_count = 0
             while True:
-                cycle_count += 1
                 self.start_listening_cycle(timeout)
         except KeyboardInterrupt:
             print("Uscita.")
@@ -116,11 +130,10 @@ class Aeris:
         time.sleep(1)
         print("Sistema terminato")       
         
-        
 def main():
     try:
         system = Aeris()
-        system.run_continous(15)
+        system.run_continous(10)
     except Exception as e:
         print(f"Errore nell'avvio: {e}")
             
