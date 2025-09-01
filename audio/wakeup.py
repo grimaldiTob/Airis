@@ -47,7 +47,7 @@ class Porcupine:
                 format=pyaudio.paInt16,
                 input=True,
                 frames_per_buffer=self.porcupine.frame_length,
-                input_device_index=0
+                input_device_index=1
             )
             
             # avvia thread di ascolto per la parola

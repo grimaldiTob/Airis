@@ -1,48 +1,36 @@
-from kittentts import KittenTTS
+from piper import PiperVoice
 import wave
 import pygame
 import numpy as np
 import io
 
-# available_voices : [  'expr-voice-2-m', 'expr-voice-2-f', 'expr-voice-3-m', 'expr-voice-3-f',  'expr-voice-4-m', 'expr-voice-4-f', 'expr-voice-5-m', 'expr-voice-5-f' ]
-
 class AerisVoice:
-    def __init__(self, model : str = "", voice: str = None):
-        self.model = model
+    def __init__(self, voice: str = "/home/aeris/aeris/speech/it_IT-paola-medium.onnx"):
         
-        # inizializza Kitten
+        # inizializza Piper
         self.voice = voice
         
-        self.tts = KittenTTS(self.model, self.voice)
+        self.tts = PiperVoice.load(self.voice)
         
-    """ Funzione che usa KittenTTS per generare un array di numpy che rappresenta
-        la traccia audio della trascrizione."""
-    def generate_speech(self, text: str):
-        audio = self.tts.generate(text=text, voice=self.voice)
-        return audio
-    
-    """ Metodo che prende in input un array di byte e una frequenza di campionamento.
+        pygame.mixer.init()
+        
+    """ Metodo che prende in input il testo restituito dal modello ia e una frequenza di campionamento.
         Successivamente riproduce l'audio tramite gli altoparlanti del dispotivo"""
-    def play_audio(self, audio: np.ndarray, sample_rate: int):
+    def play_audio(self, text: str, sample_rate: int):
         try:
-            if len(audio) == 0:
-                raise ValueError("Array vuoto")
-            
-            # Solitamente i dati audio ricevuti da metodi di ML sono con valori float tra -1.0 e 1
-            if audio.dtype != np.int16:
-                audio = (audio * 32767).astype(np.int16) # normalizzazione dei dati audio
+            if not text:
+                raise ValueError("Non c'è risposta dal modello")
 
             audio_buffer = io.BytesIO() # permette di creare un buffer in memoria RAM
-            
             
             """ Sezione di codice che scrive nell'audio buffer i bytes presenti
                 nell'array audio dopo che è stato normalizzato."""
             with wave.open(audio_buffer, 'wb') as wav_buffer: # wb = scrittura binaria
-                wav_buffer.setnchannels(2)
+                wav_buffer.setnchannels(1)
                 wav_buffer.setsampwidth(2)
                 wav_buffer.setframerate(sample_rate)
                 
-                wav_buffer.writeframes(audio.tobytes())        
+                self.tts.synthesize_wav(text, wav_buffer)      
             
             audio_buffer.seek(0) # punta all'inizio dell'audio buffer dopo aver scritto fino alla fine
             
@@ -56,12 +44,8 @@ class AerisVoice:
         except Exception as e:
             print(f"Errore durante riproduzione audio: {e}")
             
-        
-            
-    
-    
     """ Funzione usata per modificare la voce del modello. """
     def set_voice(self, voice: str):
         self.voice = voice
-        self.tts = KittenTTS(self.model, self.voice)
+        self.tts = PiperVoice.load(self.voice)
         

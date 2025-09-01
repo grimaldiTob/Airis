@@ -30,7 +30,7 @@ class Aeris:
         
         self.ears.process_audio_queue = self.custom_process_queue
         
-        self.ears.start_recording(device_index=0)
+        self.ears.start_recording(device_index=1)
         
     """ Funzione che sostituisce process_audio_queue presente nel
         gruppo audio. Permette di unire le trascrizioni generate dal
@@ -90,10 +90,9 @@ class Aeris:
         alla funzione di riproduzione audio tramite altoparlanti."""
     def reproduce_audio(self):
         try:
-            self.voice = AerisVoice(model="KittenML/kitten-tts-nano-0.2", voice="expr-voice-2-f")
+            self.voice = AerisVoice()
             if self.response.strip():
-                audio = self.voice.generate_speech(self.response)
-                self.voice.play_audio(audio=audio, sample_rate=22050)
+                self.voice.play_audio(text=self.response, sample_rate=22050)
         except Exception as e:
             print(f"Errore nella riproduzione audio: {e}")
             

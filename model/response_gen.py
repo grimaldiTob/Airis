@@ -12,7 +12,7 @@ class AerisMind:
         
         # instanzia il client di OpenAI
         self.client = OpenAI(api_key=self.api_key)
-        self.istructions = "Sei un assistente AI di nome Aeris. Rispondi in maniera simpatica e concisa."
+        self.istructions = "Sei un assistente AI di nome Aeris. Rispondi in maniera simpatica e concisa senza usare emoji."
         self.response = None
         
     def create_response(self, prompt: str):
