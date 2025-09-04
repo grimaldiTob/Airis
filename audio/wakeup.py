@@ -119,4 +119,3 @@ class Porcupine:
         print(f"Timeout raggiunto ({timeout}s). Ascolto terminato.")
         return False
                 
-    

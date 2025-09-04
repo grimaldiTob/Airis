@@ -113,7 +113,6 @@ class AerisEars:
                 silence_start = time.time()
               elif time.time() - silence_start > self.silence_seconds:
                 print("Non sento nulla")
-                self.audio.terminate()
                 break
             else:
               silence_start = None
@@ -184,8 +183,6 @@ class AerisEars:
       audio_resampled = librosa.resample(audio_data, orig_sr=44100, target_sr=16000)
       return self.transcribe_audio(audio_resampled)
       
-    
-    
     """ Funzione che inizializza l'audio thread per catturare l'audio del microfono
          e il thread che processa la coda audio."""  
     def start_recording(self, device_index = 0):
@@ -226,10 +223,10 @@ class AerisEars:
       
       if self.audio_thread.is_alive():
         # aspetta finché il thread non termina
-        self.audio_thread.join(timeout=3)
-      self.audio.terminate()
-      print("Stopped")
-      sys.exit(1)
+        self.audio_thread.join(timeout=1)
+      if self.processing_thread.is_alive():
+        # aspetta finché il thread non termina
+        self.processing_thread.join(timeout=1)
       
         
 

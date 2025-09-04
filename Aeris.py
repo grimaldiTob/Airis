@@ -3,7 +3,7 @@ from audio.audio_local import AerisEars
 from model.response_gen import AerisMind
 from speech.voice import AerisVoice
 import time
-
+import asyncio
 
 class Aeris:
     def __init__(self, gpt_model="gpt-4.1-mini"):
@@ -20,7 +20,7 @@ class Aeris:
         self.response = ""
     
     """ Funzione chiamata quando una wakeword viene detectata da Porcupine..."""    
-    def on_wake_word_detected(self):
+    def wakeword_detection(self):
         if not self.ears:
             self.ears = AerisEars()
         
@@ -69,7 +69,6 @@ class Aeris:
                     transcribed_parts.append(transcript)
             except:
                 break
-        
         if transcribed_parts:
             self.current_transcription = " ".join(transcribed_parts).strip()
             self.generate_response()
@@ -77,6 +76,7 @@ class Aeris:
         else:
             print("Nessuna trascrizione ottenuta.")
         self.transcription_complete = True
+        
         
     """ Funzione che richiama il modello di OpenAi per la generazione
         della risposta dato il prompt passato."""
@@ -90,7 +90,8 @@ class Aeris:
         alla funzione di riproduzione audio tramite altoparlanti."""
     def reproduce_audio(self):
         try:
-            self.voice = AerisVoice()
+            if not self.voice:
+                self.voice = AerisVoice()
             if self.response.strip():
                 self.voice.play_audio(text=self.response, sample_rate=22050)
         except Exception as e:
@@ -101,22 +102,15 @@ class Aeris:
          Nel momento in cui la parola viene rilevata il loop continua e viene chiamata
          on_wake_word_detected() come callback. """
     def start_listening_cycle(self, timeout: int = 10):
-        self.wakeword = Porcupine(sensitivity=0.25, callback=self.on_wake_word_detected)
-        
-        self.wakeword.start(timeout)
-        
-        while not self.transcription_complete:
-            time.sleep(0.5)
-            
-        return True
-        
-    """ Funzione che fa partire il loop di ascolto per la wakeword."""
-    def run_continous(self, timeout: int = 10):
         try:
+            self.wakeword = Porcupine(sensitivity=0.25, callback=self.wakeword_detection)
             while True:
-                self.start_listening_cycle(timeout)
+                self.wakeword.start(timeout)
+                while not self.transcription_complete:
+                    time.sleep(0.5)
+                self.ears.stop_recording()
         except KeyboardInterrupt:
-            print("Uscita.")
+            print("Uscita")
         finally:
             self.cleanup()
             
@@ -126,16 +120,14 @@ class Aeris:
             self.ears.stop_recording()
         if self.wakeword:
             self.wakeword.stop()
-        time.sleep(1)
         print("Sistema terminato")       
         
 def main():
     try:
         system = Aeris()
-        system.run_continous(10)
+        system.start_listening_cycle(timeout=10)
     except Exception as e:
         print(f"Errore nell'avvio: {e}")
-            
             
 if __name__ == "__main__":
     main()
